@@ -18,6 +18,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.json.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -39,11 +40,9 @@ public class UserServiceImpl implements UserService {
 	@Autowired
 	private PasswordEncoder encoder;
 
-	
 	@Autowired
 	private UserEntityManagerFactory userEntityManagerFactory;
-	
-	
+
 	private static final Random RANDOM = new SecureRandom();
 	private static final String ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
@@ -57,7 +56,8 @@ public class UserServiceImpl implements UserService {
 	}
 
 	@Override
-	public boolean registerUser(User user) {
+	@Transactional
+	public Object registerUser(User user) {
 		String password = user.getPassword();
 		if (password.isEmpty()) {
 			throw new BadRequestException("Invalid password.");
@@ -75,20 +75,43 @@ public class UserServiceImpl implements UserService {
 			throw new BadRequestException(user.getUsername() + " already registered.");
 		}
 
-		// Disable user until they click on confirmation link in email
-//		user.setEnabled(false);
-		user.setEnabled(true);
-//		user.setRole("USER");
-						
+	
+		user.setEnabled(true); 	// Disable user until they click on confirmation link in email
+//		user.setRole("USER");  // set user role by default USER 
+
 		// Generate random 36-character string token for confirmation link
 		user.setConfirmationToken(UUID.randomUUID().toString());
 
-		userRepository.save(user);
-		
-		return true;
+		User tempUser = userRepository.save(user);
+		int getLastInsertedID = userEntityManagerFactory.getLastInsertedID();
+		if (tempUser == null) {
+			throw new BadRequestException(user.getUsername() + " is not registered.");
+		} else {
+			int getRoleID = userEntityManagerFactory.getRoleID(user.getRole());
+			if (getRoleID != 0) {
+				if (userEntityManagerFactory.saveRoleToMember(getRoleID, getLastInsertedID)) {
+					if(userEntityManagerFactory.insertRecordToMemberTable(user,getRoleID, getLastInsertedID)!=0) {
+//						SimpleMailMessage registrationEmail = new SimpleMailMessage();
+//						registrationEmail.setTo(user.getEmail());
+//						registrationEmail.setSubject("Registration Confirmation");
+//						registrationEmail.setText("To confirm your e-mail address, please click the link below:\n" + webServerUrl
+//								+ "/users/confirm?token=" + user.getConfirmationToken());
+//						registrationEmail.setFrom("noreply@domain.com");
+//						emailService.sendEmail(registrationEmail);
+//						status=true;
+					}else {
+						throw new BadRequestException(user.getUsername() + " is not registered.");
+					}
+				}else {
+					throw new BadRequestException(user.getUsername() + " is not registered.");
+				}
+			}
+		}
+		return tempUser;
 	}
 
 	@Override
+	@Transactional(rollbackFor = Exception.class)
 	public User resetUser(User user) {
 		if (user.getUsername().isEmpty()) {
 			user.setUsername(user.getEmail());
@@ -108,8 +131,10 @@ public class UserServiceImpl implements UserService {
 		userExists.setPassword(encodedPassword);
 		userExists.setTempPassword(true);
 
-		userRepository.save(userExists);
-
+		User tempUser = userRepository.save(userExists);
+		if (tempUser == null) {
+			throw new BadRequestException("something went wrong , please try again");
+		} 
 		// return the user with plain password so that we can send it to the user's
 		// email.
 		userExists.setPassword(password);
@@ -165,7 +190,7 @@ public class UserServiceImpl implements UserService {
 	@Override
 	public User loginUser(User user) {
 		User userExists = userRepository.findByUsername(user.getUsername());
-		
+
 		if (userExists == null) {
 			throw new BadRequestException("Invalid user name.");
 		}
@@ -178,18 +203,41 @@ public class UserServiceImpl implements UserService {
 		if (!userExists.getEnabled()) {
 			throw new BadRequestException("The user is not enabled.");
 		}
-		
-		if(userExists.getRole().toString().equals("ADMIN") || userExists.getRole().toString().equals("GUEST")) {
-				throw new BadRequestException("The user is not authorized.");
+
+		if (userExists.getRole().toString().equals("ADMIN") || userExists.getRole().toString().equals("GUEST")) {
+			throw new BadRequestException("The user is not authorized.");
 		}
-		
-		
-		
-		
+
 		userExists.setPassword("");
 		return userExists;
 	}
 
+	@Override
+	public User loginAdmin(User user) {
+		User userExists = userRepository.findByUsername(user.getUsername());
+
+		if (userExists == null) {
+			throw new BadRequestException("Invalid admin name.");
+		}
+
+		String password = user.getPassword();
+		if (!encoder.matches(password, userExists.getPassword())) {
+			throw new BadRequestException("Invalid user name and password combination.");
+		}
+
+		if (!userExists.getEnabled()) {
+			throw new BadRequestException("The admin is not enabled.");
+		}
+
+		if (userExists.getRole().toString().equals("USER") || userExists.getRole().toString().equals("GUEST")) {
+			throw new BadRequestException("YOUR ARE NOT AUTHORIZED");
+		}
+
+		userExists.setPassword("");
+		return userExists;
+	}
+
+	
 	@Override
 	public String generatePassword(int length) {
 		StringBuilder returnValue = new StringBuilder(length);

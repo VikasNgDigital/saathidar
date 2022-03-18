@@ -36,6 +36,12 @@ public class User extends AuditModel{
 
 	private String lastName;
 	
+	private String gender;
+	
+	private String phone;
+	
+	private String profilecreatedby;
+	
 	@Column(name = "email", nullable = false)
 	private String email;
 
@@ -75,6 +81,9 @@ public class User extends AuditModel{
 		role = "";
 		enabled = false;
 		confirmationToken = "";
+		gender="";
+		phone="";
+		profilecreatedby="";
 		setTempPassword(false);
 	}
 
@@ -156,6 +165,30 @@ public class User extends AuditModel{
 
 	public void setTempPassword(boolean isTempPassword) {
 		this.isTempPassword = isTempPassword;
+	}
+	
+	public String getGender() {
+		return gender;
+	}
+
+	public void setGender(String gender) {
+		this.gender = gender;
+	}
+
+	public String getPhone() {
+		return phone;
+	}
+
+	public void setPhone(String phone) {
+		this.phone = phone;
+	}
+
+	public String getProfilecreatedby() {
+		return profilecreatedby;
+	}
+
+	public void setProfilecreatedby(String profilecreatedby) {
+		this.profilecreatedby = profilecreatedby;
 	}
 
 	@Override
