@@ -14,6 +14,7 @@ import javax.persistence.JoinColumn;
 import javax.persistence.JoinTable;
 import javax.persistence.ManyToMany;
 import javax.persistence.Table;
+import javax.persistence.Transient;
 
 import com.sathidar.service.AuditModel;
 
@@ -35,6 +36,15 @@ public class User extends AuditModel{
 	private String firstName;
 
 	private String lastName;
+	
+	private String gender;
+	
+	private String phone;
+	
+	@Transient
+	private String otp;
+	
+	private String profilecreatedby;
 	
 	@Column(name = "email", nullable = false)
 	private String email;
@@ -75,6 +85,10 @@ public class User extends AuditModel{
 		role = "";
 		enabled = false;
 		confirmationToken = "";
+		gender="";
+		phone="";
+		otp="";
+		profilecreatedby="";
 		setTempPassword(false);
 	}
 
@@ -156,6 +170,38 @@ public class User extends AuditModel{
 
 	public void setTempPassword(boolean isTempPassword) {
 		this.isTempPassword = isTempPassword;
+	}
+	
+	public String getGender() {
+		return gender;
+	}
+
+	public void setGender(String gender) {
+		this.gender = gender;
+	}
+
+	public String getPhone() {
+		return phone;
+	}
+
+	public void setPhone(String phone) {
+		this.phone = phone;
+	}
+
+	public String getProfilecreatedby() {
+		return profilecreatedby;
+	}
+
+	public void setProfilecreatedby(String profilecreatedby) {
+		this.profilecreatedby = profilecreatedby;
+	}
+
+	public String getOtp() {
+		return otp;
+	}
+
+	public void setOtp(String otp) {
+		this.otp = otp;
 	}
 
 	@Override

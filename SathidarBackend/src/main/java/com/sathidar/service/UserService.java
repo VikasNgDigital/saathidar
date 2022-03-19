@@ -8,7 +8,7 @@ public interface UserService {
 
 	java.util.List<User> getAllUsers();
 	
-	boolean registerUser(User user);
+	Object registerUser(User user);
 	
 	User resetUser(User user);
 	
@@ -19,6 +19,8 @@ public interface UserService {
 	User loginUser(User user);
 
 	String generatePassword(int length);
-	
+
+	User loginAdmin(User user);
+
 //	User logoutUser(User user);
 }

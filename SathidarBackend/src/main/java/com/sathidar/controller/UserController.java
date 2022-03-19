@@ -1,12 +1,14 @@
 package com.sathidar.controller;
 
+import java.text.DecimalFormat;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Random;
 
 //import javax.validation.Valid;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,11 +23,13 @@ import com.sathidar.EntityMangerFactory.UserEntityManagerFactory;
 import com.sathidar.model.User;
 //import com.sathidar.service.EmailService;
 import com.sathidar.service.UserService;
+import com.sathidar.util.SendSMSAction;
 
 
 //@CrossOrigin(maxAge = 3600) // https://spring.io/guides/gs/rest-service-cors/
 @CrossOrigin(origins = "http://localhost:9092")
 @RestController
+@RequestMapping("/api")
 public class UserController {
 	
 	@Autowired
@@ -34,6 +38,8 @@ public class UserController {
 	@Autowired
 	private UserEntityManagerFactory userEntityManagerFactory;
 	
+	@Autowired
+	private SendSMSAction sendSMSAction;
 	
 //	@Autowired
 //	private EmailService emailService;
@@ -49,24 +55,48 @@ public class UserController {
 	}
 
 	@PostMapping(path = "/users/register")
-	public void register(@Validated @RequestBody User user) {
-		boolean status=false;
-		if (userService.registerUser(user)) {
-			int getRoleID=userEntityManagerFactory.getRoleID(user.getRole());
-			if(getRoleID==1) {				
-				int getLastInsertedID=userEntityManagerFactory.getLastInsertedID();
-				if(userEntityManagerFactory.saveRoleToMember(getRoleID, getLastInsertedID)) {
-//					SimpleMailMessage registrationEmail = new SimpleMailMessage();
-//					registrationEmail.setTo(user.getEmail());
-//					registrationEmail.setSubject("Registration Confirmation");
-//					registrationEmail.setText("To confirm your e-mail address, please click the link below:\n" + webServerUrl
-//							+ "/users/confirm?token=" + user.getConfirmationToken());
-//					registrationEmail.setFrom("noreply@domain.com");
-//					emailService.sendEmail(registrationEmail);
-					status=true;
-				}
-			}
+	public Map<String, String> register(@Validated @RequestBody User user) {
+		 HashMap<String, String> map = new HashMap<>();		 				 
+		if(userService.registerUser(user) !=null) {
+			 map.put("message", "Member Register...");
+		}else {
+			map.put("message", "Something wrong , please try again....");
 		}
+		return map;
+	}
+
+	@PostMapping(path = "/member/otp")
+	public Map<String, String> sendOTP(@Validated @RequestBody User user) {
+		 HashMap<String, String> map = new HashMap<>();		 			
+		 String otp=this.getOTP();
+		 String smsMessage="Dear Customer, your OTP for registration is " + otp;
+		 String sender="STHDAR";
+		 if(!sendSMSAction.SendOtpSms(user.getPhone().trim(),sender,smsMessage).equals("")) {
+			 if(userEntityManagerFactory.saveTempOTP(user.getPhone().trim(),otp)) {
+				 map.put("message", "OTP Send...");
+			 }else {
+				 map.put("message", "Something wrong , please try again....");
+			 }
+		}else {
+				map.put("message", "Something wrong , please try again....");
+		}
+		return map;
+	}
+	
+	@GetMapping(path = "/member/verify/otp")
+	public Map<String, String> confirmOTP(@Validated @RequestBody User user) {
+		 HashMap<String, String> map = new HashMap<>();		
+		 String mOtp=user.getOtp();
+		 if(userEntityManagerFactory.verifyMemberOtp(mOtp,user.getPhone())) {
+			 map.put("message", "OTP Verify Successfully");
+		 }else {
+			 map.put("message", "OTP Mismatch");
+		 }
+		 return map;
+	}
+	
+	private String getOTP() {
+		return new DecimalFormat("000000").format(new Random().nextInt(999999));
 	}
 
 	@GetMapping(path = "/users/confirm")
@@ -77,19 +107,26 @@ public class UserController {
 
 	@PostMapping(path = "/users/login")
 	public User login(@Validated @RequestBody User user) {
-		
 		return userService.loginUser(user);
 	}
 	
-//	@PostMapping(path = "/users/logout")
-//	public User logout(@Validated @RequestBody User user) {
-//		return userService.logoutUser(user);
-//	}
+	@PostMapping(path = "/admin-login")
+	public User adminLogin(@Validated @RequestBody User user) {
+		return userService.loginAdmin(user);
+	}
+	
+	@PostMapping(path = "/users/changepwd")
+	public User changePassword(@Validated @RequestBody User user) {
+		return userService.changeUserPassword(user);
+	}
 
+	
 	@PostMapping(path = "/users/reset")
 	public void reset(@Validated @RequestBody User user) {
 		User resetUser = userService.resetUser(user);
 		if (resetUser != null) {
+			
+			
 //			SimpleMailMessage registrationEmail = new SimpleMailMessage();
 //			registrationEmail.setTo(user.getEmail());
 //			registrationEmail.setSubject("Temporary Password Sent From " + webServerUrl);
@@ -101,8 +138,8 @@ public class UserController {
 		}
 	}
 
-	@PostMapping(path = "/users/changepwd")
-	public User changePassword(@Validated @RequestBody User user) {
-		return userService.changeUserPassword(user);
-	}
+//	@PostMapping(path = "/users/logout")
+//	public User logout(@Validated @RequestBody User user) {
+//		return userService.logoutUser(user);
+//	}
 }
